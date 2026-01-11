@@ -17,10 +17,7 @@ class AuthService {
           'email': email.trim(),
           'password': password,
         }),
-      )
-          //.timeout(const Duration(seconds: 15))
-      ;
-
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
         return {
           'success': false,
@@ -60,6 +57,7 @@ class AuthService {
         };
       }
 
+
       // Save token
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', token);
@@ -75,6 +73,44 @@ class AuthService {
         'success': false,
         'message': 'Connection error: ${e.toString()}',
       };
+    }
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'password': password,
+          'firstName': firstName.trim(),
+          'lastName': lastName.trim(),
+          'phoneNumber': phoneNumber.trim(),
+        }),
+      ).timeout(const Duration(seconds: 20)); // Giving Spring Boot time to process
+
+      final json = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'message': 'Account created successfully!'};
+      } else {
+        // Handle the error structure you provided
+        final error = json['error'];
+        final messages = error?['message'] as List?;
+        return {
+          'success': false,
+          'message': messages?.isNotEmpty == true ? messages![0] : 'Registration failed'
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: ${e.toString()}'};
     }
   }
 
