@@ -60,21 +60,31 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-      // 4. Redirect to Dashboard/Home
-      // Replace '/home' with your actual route name
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushReplacementNamed(context, '/my-prompts');
     } else {
-      // Show error message
       setState(() {
-        _errorMessage = result['message'] ?? 'An unknown error occurred';
+        if (result['message'].contains('401')) {
+          _errorMessage = 'Invalid email or password. Please try again.';
+        } else {
+          _errorMessage = result['message'] ?? 'An unknown error occurred';
+        }
       });
 
-      // Optional: Also show a message box for the error
+      _passwordController.clear();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_errorMessage!),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(_errorMessage!)),
+            ],
+          ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -298,17 +308,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Text(
                       "Don't have an account? ",
-                      style: TextStyle(color: Colors.grey),
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        // TODO: Go to sign up screen
+                    TextButton(
+                      onPressed: () {
+                        print("Navigating to register..."); // For debugging
+                        Navigator.pushNamed(context, '/register');
                       },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4), // Small padding for hit area
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       child: Text(
                         'Create one',
                         style: TextStyle(
                           color: brandBlue,
                           fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
                       ),
                     ),
