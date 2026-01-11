@@ -11,10 +11,12 @@ class MyPromptsScreen extends StatefulWidget {
   @override
   State<MyPromptsScreen> createState() => _MyPromptsScreenState();
 }
+enum PromptView { myPrompts, publicPrompts }
 
 class _MyPromptsScreenState extends State<MyPromptsScreen> {
   final PromptService _promptService = PromptService();
-  final ScrollController _scrollController = ScrollController(); // Track scroll position
+  final ScrollController _scrollController = ScrollController();
+  PromptView _currentView = PromptView.myPrompts;
 
   List<dynamic> _prompts = [];
   bool _isLoading = true;
@@ -152,7 +154,6 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
   }
 
   Future<void> _handleShare(String promptId) async {
-    // Show a loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -162,17 +163,15 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
     final result = await _promptService.sharePrompt(promptId);
 
     if (!mounted) return;
-    Navigator.pop(context); // Close loading indicator
+    Navigator.pop(context);
 
     if (result['success']) {
       final String shareUrl = result['shareUrl'];
 
-      // Copy to clipboard
       await Clipboard.setData(ClipboardData(text: shareUrl));
 
       _showQrDialog(shareUrl);
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Link copied: $shareUrl'),
@@ -187,19 +186,89 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
     }
   }
 
+  Future<void> _fetchPrompts({bool loadMore = false}) async {
+    final isPublic = _currentView == PromptView.publicPrompts;
+    final cache = isPublic ? _promptService.cachedPublicPrompts : _promptService.cachedPrompts;
+    final fullyLoaded = isPublic ? _promptService.isPublicFullyLoaded : _promptService.isFullyLoaded;
+
+    if (!loadMore && fullyLoaded && cache.isNotEmpty) {
+      setState(() {
+        _prompts = cache;
+        _isLoading = false;
+        _hasNextPage = false;
+      });
+      return;
+    }
+
+    if (loadMore) {
+      setState(() => _isLoadMore = true);
+    } else {
+      setState(() {
+        _isLoading = cache.isEmpty;
+        _errorMessage = null;
+        _currentPage = 0;
+        _hasNextPage = true;
+      });
+    }
+
+    final result = isPublic
+        ? await _promptService.getPublicPrompts(page: _currentPage, size: 10)
+        : await _promptService.getMyPrompts(page: _currentPage, size: 10);
+
+    if (!mounted) return;
+
+    if (result['success']) {
+      setState(() {
+        _prompts = isPublic ? _promptService.cachedPublicPrompts : _promptService.cachedPrompts;
+        _isLoading = false;
+        _isLoadMore = false;
+        _currentPage++;
+        if (result['fromCache'] == true || (isPublic ? _promptService.isPublicFullyLoaded : _promptService.isFullyLoaded)) {
+          _hasNextPage = false;
+        }
+      });
+    } else {
+      setState(() {
+        _errorMessage = result['message'];
+        _isLoading = false;
+        _isLoadMore = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('My Prompts',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
+        title: DropdownButtonHideUnderline(
+          child: DropdownButton<PromptView>(
+            value: _currentView,
+            icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+            onChanged: (PromptView? newValue) {
+              if (newValue != null && newValue != _currentView) {
+                setState(() {
+                  _currentView = newValue;
+                  _prompts = [];
+                });
+                _fetchPrompts();
+              }
+            },
+            items: const [
+              DropdownMenuItem(value: PromptView.myPrompts, child: Text("My Prompts")),
+              DropdownMenuItem(value: PromptView.publicPrompts, child: Text("Public Prompts")),
+            ],
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF005CEE)),
             onPressed: () async {
+              _promptService.clearCache();
               await AuthService.clearToken();
               if (mounted) Navigator.pushReplacementNamed(context, '/');
             },
@@ -259,55 +328,23 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
 
   Widget _buildPromptCard(dynamic prompt) {
     final String promptId = prompt['id']?.toString() ?? '';
+    final String author = prompt['fullName'] ?? 'Unknown';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           )
         ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        title: Text(
-          prompt['title'] ?? 'Untitled Prompt',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              prompt['description'] ?? 'No description provided.',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF005CEE).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                prompt['visibility']?.toString().toUpperCase() ?? 'PRIVATE',
-                style: const TextStyle(color: Color(0xFF005CEE), fontSize: 10, fontWeight: FontWeight.bold),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.share, color: Color(0xFF005CEE), size: 20),
-              onPressed: () => _handleShare(promptId),
-              tooltip: 'Share Prompt',
-            ),
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         onTap: () {
           Navigator.push(
             context,
@@ -316,6 +353,67 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
             ),
           );
         },
+        title: Text(
+          prompt['title'] ?? 'Untitled Prompt',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15, // Smaller title
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_currentView == PromptView.publicPrompts)
+              Text(
+                "By $author",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[500],
+                ),
+              ),
+            const SizedBox(height: 2), // Reduced spacing
+            Text(
+              prompt['description'] ?? 'No description.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12, // Smaller description
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF005CEE).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                prompt['visibility']?.toString().toUpperCase() ?? 'PRIVATE',
+                style: const TextStyle(
+                    color: Color(0xFF005CEE),
+                    fontSize: 9, // Smaller tag
+                    fontWeight: FontWeight.bold
+                ),
+              ),
+            ),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.share_outlined, color: Color(0xFF005CEE), size: 12),
+              onPressed: () => _handleShare(promptId),
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 8),
+          ],
+        ),
       ),
     );
   }
