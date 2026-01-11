@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'https://eduprompt.uprailway.app';
+  static const String baseUrl = 'https://eduprompt.up.railway.app/BE';
 
   Future<Map<String, dynamic>> login({
     required String email,
@@ -17,7 +17,9 @@ class AuthService {
           'email': email.trim(),
           'password': password,
         }),
-      );
+      )
+          //.timeout(const Duration(seconds: 15))
+      ;
 
       if (response.statusCode != 200) {
         return {
@@ -41,8 +43,15 @@ class AuthService {
         };
       }
 
-      // Success case: token is in "data"
-      final token = json['data'] as String?;
+      // Success case: handle the data correctly
+      final data = json['data'];
+      String? token;
+
+      if (data is String) {
+        token = data;
+      } else if (data is Map<String, dynamic>) {
+        token = data['token']?.toString();
+      }
 
       if (token == null || token.isEmpty) {
         return {

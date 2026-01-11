@@ -1,53 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:edupormpt_mobile/service/auth_service.dart';
+
+import '../../service/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
-  }
+}
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  bool rememberMe = false;
   bool _isLoading = false;
   String? _errorMessage;
 
   final Color brandBlue = const Color(0xFF005CEE);
-
-  Future<void> _login() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final result = await AuthService().login(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
-
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-
-    if (result['success'] == true) {
-      // Success → go to home/main screen
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login successful!')),
-      );
-
-      // Example navigation:
-      Navigator.pushReplacementNamed(context, '/home');
-      // Navigator.pushReplacementNamed(context, '/home');
-      // or use go_router / auto_route
-    } else {
-      setState(() {
-        _errorMessage = result['message'] ?? 'Login failed. Please try again.';
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -56,12 +26,64 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleLogin() async {
+    // 1. Basic UI Validation
+    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
+      setState(() => _errorMessage = 'Please enter both email and password');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    // 2. Call the AuthService
+    final authService = AuthService(); // Ensure this is imported
+    final result = await authService.login(
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    // 3. Handle the result
+    if (result['success'] == true) {
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Login successful!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // 4. Redirect to Dashboard/Home
+      // Replace '/home' with your actual route name
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      // Show error message
+      setState(() {
+        _errorMessage = result['message'] ?? 'An unknown error occurred';
+      });
+
+      // Optional: Also show a message box for the error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_errorMessage!),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    const Color brandBlue = Color(0xFF005CEE); // The vibrant blue from your UI
-
     return Scaffold(
-      backgroundColor: Colors.white, // Changed background to white
+      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -71,7 +93,6 @@ class _LoginScreenState extends State<LoginScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              // Subtler shadow for the white-on-white look
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -82,65 +103,103 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // EduPrompt Logo
-                // Image.network('https://via.placeholder.com/40', height: 40),
                 const SizedBox(height: 12),
                 const Text(
                   'EduPrompt',
                   style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: brandBlue // Brand name in blue
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF005CEE),
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   'Welcome Back',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Sign in to your account to continue',
                   style: TextStyle(color: Colors.grey, fontSize: 14),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
 
-                // Email Field
+                // Email
                 _buildInputLabel('Email Address'),
                 const SizedBox(height: 8),
-                _buildTextField('Enter your email address'),
+                _buildTextField(
+                  controller: _emailController,
+                  hint: 'Enter your email address',
+                ),
 
                 const SizedBox(height: 24),
 
-                // Password Field
+                // Password
                 _buildInputLabel('Password'),
                 const SizedBox(height: 8),
-                _buildTextField('Enter your password', isPassword: true),
+                _buildTextField(
+                  controller: _passwordController,
+                  hint: 'Enter your password',
+                  isPassword: true,
+                ),
 
-                // Options Row
+                const SizedBox(height: 24),
+
+                // Remember me (full width)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Left Side: Remember Me
                     Row(
                       children: [
-                        Checkbox(
-                          value: false,
-                          onChanged: (v) {},
-                          activeColor: brandBlue,
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: rememberMe,
+                            onChanged: (value) {
+                              setState(() => rememberMe = value ?? false);
+                            },
+                            activeColor: brandBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4), // Modern slightly rounded corners
+                            ),
+                          ),
                         ),
-                        const Text('Remember me', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Remember me',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
+
+                    // Right Side: Forgot Password
                     TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                          'Forgot password?',
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: brandBlue // Link in blue
-                          )
+                      onPressed: () {
+                        // TODO: Forgot password screen/flow
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 0),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Forgot password?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: brandBlue,
+                        ),
                       ),
                     ),
                   ],
@@ -148,17 +207,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Main Sign In Button
+                // Sign In Button
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
+                    onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: brandBlue,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -169,11 +230,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         strokeWidth: 2.5,
                       ),
                     )
-                        : const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        : const Text(
+                      'Sign In',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
 
-                // Show error below button
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -185,13 +251,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Divider
+                // Divider + Google + Create account...
                 const Row(
                   children: [
                     Expanded(child: Divider()),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('or continue with', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      child: Text(
+                        'or continue with',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
                     ),
                     Expanded(child: Divider()),
                   ],
@@ -199,42 +268,48 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Google Sign In (White background with border)
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      // TODO: Google Sign In
+                    },
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: Colors.grey.shade200),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Image.network('https://tinyurl.com/google-logo-png', height: 20),
-                        const SizedBox(width: 12),
-                        const Text('Sign in with Google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-                      ],
+                    child: const Text(
+                      'Sign in with Google',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 40),
 
-                // Create Account Footer
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account? ", style: TextStyle(color: Colors.grey)),
+                    const Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: Colors.grey),
+                    ),
                     GestureDetector(
-                      onTap: () {},
-                      child: const Text(
-                          'Create one',
-                          style: TextStyle(
-                              color: brandBlue, // Link in blue
-                              fontWeight: FontWeight.bold
-                          )
+                      onTap: () {
+                        // TODO: Go to sign up screen
+                      },
+                      child: Text(
+                        'Create one',
+                        style: TextStyle(
+                          color: brandBlue,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -248,17 +323,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildInputLabel(String label) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87),
+    return Text(
+      label,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 14,
+        color: Colors.black87,
       ),
     );
   }
 
-  Widget _buildTextField(String hint, {bool isPassword = false}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    bool isPassword = false,
+  }) {
     return TextField(
+      controller: controller,
       obscureText: isPassword,
       decoration: InputDecoration(
         hintText: hint,
