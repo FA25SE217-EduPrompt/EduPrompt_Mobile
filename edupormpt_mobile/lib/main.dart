@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:edupormpt_mobile/feature/auth/login_screen.dart';
 
+import 'feature/auth/register_screen.dart';
+import 'feature/prompt/my_prompt_screen.dart';
+
 void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: LoginScreen(),
-  ));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -16,25 +16,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Edu Prompt',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Edu Prompt Home Page'),
+      // Set the first screen to show
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        // Make sure to add this so your redirection works after login
+        '/home': (context) => const MyHomePage(title: 'Edu Prompt Home Page'),
+        '/my-prompts': (context) => const MyPromptsScreen(),
+      },
     );
   }
 }
