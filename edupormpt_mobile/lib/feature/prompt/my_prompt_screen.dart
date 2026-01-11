@@ -1,6 +1,9 @@
+import 'package:edupormpt_mobile/feature/prompt/prompt_detail_screen.dart';
 import 'package:flutter/material.dart';
 import '../../service/auth_service.dart';
-import '../../service/prompt_service.dart'; // Ensure this service is created
+import '../../service/prompt_service.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class MyPromptsScreen extends StatefulWidget {
   const MyPromptsScreen({super.key});
@@ -39,6 +42,57 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _showQrDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Share Prompt", textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Link copied to clipboard!",
+              style: TextStyle(color: Colors.green, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            // QR Code Generation
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: QrImageView(
+                data: url,
+                version: QrVersions.auto,
+                size: 200.0,
+                gapless: false,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Color(0xFF005CEE),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              url,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _checkAuthAndLoad() async {
@@ -94,6 +148,42 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
       if (result['message'].toString().contains('Unauthorized')) {
         Navigator.pushReplacementNamed(context, '/');
       }
+    }
+  }
+
+  Future<void> _handleShare(String promptId) async {
+    // Show a loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final result = await _promptService.sharePrompt(promptId);
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close loading indicator
+
+    if (result['success']) {
+      final String shareUrl = result['shareUrl'];
+
+      // Copy to clipboard
+      await Clipboard.setData(ClipboardData(text: shareUrl));
+
+      _showQrDialog(shareUrl);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Link copied: $shareUrl'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -168,6 +258,7 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
   }
 
   Widget _buildPromptCard(dynamic prompt) {
+    final String promptId = prompt['id']?.toString() ?? '';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -209,11 +300,21 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
                 style: const TextStyle(color: Color(0xFF005CEE), fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.share, color: Color(0xFF005CEE), size: 20),
+              onPressed: () => _handleShare(promptId),
+              tooltip: 'Share Prompt',
+            ),
           ],
         ),
         trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         onTap: () {
-          // TODO: Navigate to Prompt Details
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PromptDetailScreen(promptId: promptId),
+            ),
+          );
         },
       ),
     );
