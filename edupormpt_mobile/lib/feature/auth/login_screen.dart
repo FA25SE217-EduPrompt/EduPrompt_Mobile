@@ -27,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    // 1. Basic UI Validation
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       setState(() => _errorMessage = 'Please enter both email and password');
       return;
@@ -38,8 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    // 2. Call the AuthService
-    final authService = AuthService(); // Ensure this is imported
+    final authService = AuthService();
     final result = await authService.login(
       email: _emailController.text,
       password: _passwordController.text,
@@ -115,21 +113,18 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 12),
-                const Text(
-                  'EduPrompt',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF005CEE),
+                Center(
+                  child: Container(
+                    height: 200, // Adjust size as needed
+                    width: 200,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      image: const DecorationImage(
+                        image: AssetImage('picture/logo.jpg'),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Welcome Back',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 const Text(
