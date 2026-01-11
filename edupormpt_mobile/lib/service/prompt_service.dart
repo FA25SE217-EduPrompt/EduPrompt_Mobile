@@ -69,6 +69,65 @@ class PromptService {
     }
   }
 
+  Future<Map<String, dynamic>> sharePrompt(String promptId) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return {'success': false, 'message': 'User is not logged in'};
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/prompts-share/$promptId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      final jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          'success': true,
+          'shareUrl': jsonResponse['data'], // This is the "string" containing the URL
+        };
+      } else {
+        return {
+          'success': false,
+          'message': _parseErrorMessage(jsonResponse),
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: ${e.toString()}'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPromptById(String promptId) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) return {'success': false, 'message': 'User is not logged in'};
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/prompts/$promptId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      final jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': jsonResponse['data'], // Contains the full details like instruction, constraints, etc.
+        };
+      } else {
+        return {'success': false, 'message': _parseErrorMessage(jsonResponse)};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: ${e.toString()}'};
+    }
+  }
+
   String _parseErrorMessage(Map<String, dynamic> json) {
     if (json['error'] != null) {
       final messages = json['error']['message'] as List?;
