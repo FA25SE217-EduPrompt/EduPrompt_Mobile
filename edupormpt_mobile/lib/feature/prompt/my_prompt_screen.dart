@@ -16,6 +16,7 @@ enum PromptView { myPrompts, publicPrompts }
 class _MyPromptsScreenState extends State<MyPromptsScreen> {
   final PromptService _promptService = PromptService();
   final ScrollController _scrollController = ScrollController();
+  final AuthService _authService = AuthService();
   PromptView _currentView = PromptView.myPrompts;
 
   List<dynamic> _prompts = [];
@@ -268,9 +269,22 @@ class _MyPromptsScreenState extends State<MyPromptsScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF005CEE)),
             onPressed: () async {
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator()),
+              );
+
+              await _authService.logout();
+
               _promptService.clearCache();
-              await AuthService.clearToken();
-              if (mounted) Navigator.pushReplacementNamed(context, '/');
+
+              if (!mounted) return;
+
+              // 3. Close loader and Navigate to Login
+              Navigator.pop(context); // Pop dialog
+              Navigator.pushReplacementNamed(context, '/');
             },
           ),
         ],
