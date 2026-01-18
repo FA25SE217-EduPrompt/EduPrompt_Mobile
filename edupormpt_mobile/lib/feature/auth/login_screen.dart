@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../service/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -88,6 +88,87 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        // clientId: '942310671437-n8mgsjlurld74pq08m4lr3fc94ibghqb.apps.googleusercontent.com',
+        serverClientId: '942310671437-h59u8uhf8cecs7pj2v5715nd2a3s8pat.apps.googleusercontent.com',
+        scopes: ['email'],
+      );
+
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+        await googleSignIn.disconnect();
+      }
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        print('Google Sign-In cancelled by user');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to get authentication token';
+        });
+        return;
+      }
+
+      final authService = AuthService();
+      final result = await authService.googleLogin(idToken);
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Google login successful!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        Navigator.pushReplacementNamed(context, '/my-prompts');
+      } else {
+        setState(() => _errorMessage = result['message'] ?? 'An unknown error occurred');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text(_errorMessage!)),
+              ],
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Google login fail!!');
+      setState(() => _errorMessage = 'Google login fail!!');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,63 +232,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _passwordController,
                   hint: 'Enter your password',
                   isPassword: true,
-                ),
-
-                const SizedBox(height: 24),
-
-                // Remember me (full width)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Left Side: Remember Me
-                    Row(
-                      children: [
-                        SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: Checkbox(
-                            value: rememberMe,
-                            onChanged: (value) {
-                              setState(() => rememberMe = value ?? false);
-                            },
-                            activeColor: brandBlue,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4), // Modern slightly rounded corners
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Remember me',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Right Side: Forgot Password
-                    TextButton(
-                      onPressed: () {
-                        // TODO: Forgot password screen/flow
-                      },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 0),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'Forgot password?',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: brandBlue,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
 
                 const SizedBox(height: 32),
@@ -277,16 +301,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton(
-                    onPressed: () {
-                      // TODO: Google Sign In
-                    },
+                    onPressed: _isLoading ? null : _handleGoogleLogin,
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: Colors.grey.shade200),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: _isLoading
+                        ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.black87,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                        : const Text(
                       'Sign in with Google',
                       style: TextStyle(
                         color: Colors.black87,
