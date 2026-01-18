@@ -1,6 +1,5 @@
-# edupormpt_mobile
+# EduPrompt Mobile
 
-A new Flutter project.
 
 ## Getting Started
 
