@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String baseUrl = 'https://eduprompt.up.railway.app/BE';
-
+  //static const String baseUrl = 'http://localhost:8080/BE';
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -57,7 +57,6 @@ class AuthService {
         };
       }
 
-
       // Save token
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', token);
@@ -66,6 +65,63 @@ class AuthService {
         'success': true,
         'token': token,
         'message': 'Login successful',
+      };
+
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Connection error: ${e.toString()}',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> googleLogin(String tokenId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/google'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'tokenId': tokenId}),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'Server error (${response.statusCode})',
+        };
+      }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (json['error'] != null) {
+        final error = json['error'] as Map<String, dynamic>?;
+        final messages = error?['message'] as List<dynamic>?;
+
+        return {
+          'success': false,
+          'message': messages?.isNotEmpty == true
+              ? messages![0].toString()
+              : (error?['code'] ?? 'Google login failed'),
+        };
+      }
+
+      final data = json['data'];
+      String? token = data?['token']?.toString();
+
+      if (token == null || token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'No token received from server',
+        };
+      }
+
+      // Save token
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+
+      return {
+        'success': true,
+        'token': token,
+        'message': 'Google login successful',
       };
 
     } catch (e) {
@@ -111,6 +167,26 @@ class AuthService {
       }
     } catch (e) {
       return {'success': false, 'message': 'Connection error: ${e.toString()}'};
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      final token = await getToken();
+      if (token != null) {
+        await http.post(
+          Uri.parse('$baseUrl/api/auth/logout'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ).timeout(const Duration(seconds: 5));
+      }
+    } catch (e) {
+      print("Logout network error: $e");
+    } finally {
+      // Always clear local token and data
+      await clearToken();
     }
   }
 
