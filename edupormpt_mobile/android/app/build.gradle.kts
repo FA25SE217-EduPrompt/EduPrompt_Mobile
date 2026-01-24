@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.edupormpt_mobile"
+    namespace = "com.example.eduprompt_mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
